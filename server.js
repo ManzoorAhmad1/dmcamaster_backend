@@ -5,8 +5,17 @@ const cors = require('cors');
 const app = express();
 const PORT = 5000;
 
-// Middleware
-app.use(cors());
+// Middleware - CORS Configuration
+const corsOptions = {
+  origin: [
+    'http://localhost:3000',           // Local development
+    'https://dmcamaster.com',          // Production domain
+    'https://www.dmcamaster.com',      // Production www domain
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
