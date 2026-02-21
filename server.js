@@ -8,7 +8,8 @@ const PORT = 5000;
 // Middleware - CORS Configuration
 const corsOptions = {
   origin: [
-    'http://localhost:3000',           // Local development
+    'http://localhost:3000',
+    'http://localhost:3003',           // Local development
     'https://dmcamaster.com',          // Production domain
     'https://www.dmcamaster.com',      // Production www domain
   ],
@@ -23,19 +24,74 @@ app.use(express.urlencoded({ extended: true }));
 // HOSTINGER EMAIL CONFIGURATION
 // Apni Hostinger email credentials yahan add karein
 // ============================================
-const EMAIL_CONFIG = {
-  host: 'smtp.hostinger.com',
+
+// SMTP Configuration
+const smtpConfig = {
+  host: "smtp.hostinger.com",
   port: 465,
-  secure: true, // true for 465, false for 587
+  secure: true,
   auth: {
-    user: 'legal@dmcamaster.com', // Apka Hostinger email yahan lagayen
-    pass: 'Se^jhEe7',  // Apka email password yahan lagayen
+    user: "legal@dmcamaster.com",
+    pass: "~0jc+v&3R",
   },
+  pool: true, // Enable connection pooling
+  maxConnections: 1, // Limit concurrent connections
+  maxMessages: 100, // Max messages per connection
+  rateDelta: 1000, // Time window for rate limiting (ms)
+  rateLimit: 5, // Max messages per rateDelta
+  tls: {
+    rejectUnauthorized: false
+  },
+  debug: true,
+  logger: true
 };
 
-// Create nodemailer transporter
+const transporter = nodemailer.createTransport(smtpConfig);
+
+// Option 2: Port 465 with SSL (Agar upar wala kaam na kare)
+// const transporter = nodemailer.createTransporter({
+//   host: "smtp.hostinger.com",
+//   port: 465,
+//   secure: true,
+//   auth: {
+//     user: "legal@dmcamaster.com",
+//     pass: "Muhammad@dmcamaster123",
+//   },
+//   tls: {
+//     rejectUnauthorized: false
+//   }
+// });
+
+transporter.verify((error, success) => {
+  if (error) {
+    console.log("SMTP Error:", error);
+  } else {
+    console.log("SMTP Ready");
+  }
+});
+
+// Create fresh transporter for each request (more reliable)
 const createTransporter = () => {
-  return nodemailer.createTransport(EMAIL_CONFIG);
+  return nodemailer.createTransport(smtpConfig);
+};
+
+// Helper function to send email with retry
+const sendEmailWithRetry = async (mailOptions, maxRetries = 2) => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const transporter = createTransporter();
+      const info = await transporter.sendMail(mailOptions);
+      console.log(`Email sent successfully on attempt ${attempt}:`, info.messageId);
+      return info;
+    } catch (error) {
+      console.log(`Attempt ${attempt} failed:`, error.message);
+      if (attempt === maxRetries) {
+        throw error; // Rethrow if all attempts failed
+      }
+      // Wait 2 seconds before retry
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+  }
 };
 
 // Email sending route
@@ -51,12 +107,10 @@ app.post('/api/send-email', async (req, res) => {
       });
     }
 
-    const transporter = createTransporter();
-
     // Email to admin
     const mailOptions = {
-      from: EMAIL_CONFIG.auth.user, // Sender email
-      to: EMAIL_CONFIG.auth.user,   // Aapki email jahan message receive hoga
+      from: "legal@dmcamaster.com", // Sender email
+      to: "legal@dmcamaster.com",   // Aapki email jahan message receive hoga
       subject: `New Contact Form Submission from ${firstName} ${lastName || ''}`,
       html: `
         <!DOCTYPE html>
@@ -175,8 +229,8 @@ app.post('/api/send-email', async (req, res) => {
       `,
     };
 
-    // Send email
-    await transporter.sendMail(mailOptions);
+    // Send email with retry mechanism
+    await sendEmailWithRetry(mailOptions);
 
     res.status(200).json({
       success: true,
