@@ -1,258 +1,172 @@
-const express = require('express');
-const nodemailer = require('nodemailer');
-const cors = require('cors');
+/**
+ * Axontix Software House — Email API
+ * Express + Nodemailer (Hostinger SMTP)
+ */
+require("dotenv").config();
+const express = require("express");
+const nodemailer = require("nodemailer");
+const cors = require("cors");
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 4000;
 
-// Middleware - CORS Configuration
-const corsOptions = {
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:3003',           // Local development
-    'https://dmcamaster.com',          // Production domain
-    'https://www.dmcamaster.com',      // Production www domain
-  ],
-  credentials: true,
-  optionsSuccessStatus: 200
-};
-app.use(cors(corsOptions));
-app.use(express.json());
+// ──────────────────────────────────────────────────────────
+// CORS
+// ──────────────────────────────────────────────────────────
+const allowList = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "https://axontix.com",
+  "https://www.axontix.com",
+  ...(process.env.ALLOWED_ORIGINS || "").split(",").filter(Boolean),
+];
+
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      if (!origin || allowList.includes(origin)) return cb(null, true);
+      return cb(new Error("Origin not allowed by CORS"));
+    },
+    credentials: true,
+    optionsSuccessStatus: 200,
+  })
+);
+app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// ============================================
-// HOSTINGER EMAIL CONFIGURATION
-// Apni Hostinger email credentials yahan add karein
-// ============================================
-
-// SMTP Configuration
+// ──────────────────────────────────────────────────────────
+// SMTP (Hostinger)
+// Configure via env. Defaults match the client-supplied creds.
+// ──────────────────────────────────────────────────────────
 const smtpConfig = {
-  host: "smtp.hostinger.com",
-  port: 465,
-  secure: true,
+  host: process.env.EMAIL_HOST || "smtp.hostinger.com",
+  port: Number(process.env.EMAIL_PORT || 465),
+  secure: String(process.env.EMAIL_SECURE || "true") === "true",
   auth: {
-    user: "legal@dmcamaster.com",
-    pass: "~0jc+v&3R",
+    user: process.env.EMAIL_USER || "info@northlimo.ca",
+    pass: process.env.EMAIL_PASS || "B+#1T?1Ph8",
   },
-  pool: true, // Enable connection pooling
-  maxConnections: 1, // Limit concurrent connections
-  maxMessages: 100, // Max messages per connection
-  rateDelta: 1000, // Time window for rate limiting (ms)
-  rateLimit: 5, // Max messages per rateDelta
-  tls: {
-    rejectUnauthorized: false
-  },
-  debug: true,
-  logger: true
+  tls: { rejectUnauthorized: false },
 };
 
-const transporter = nodemailer.createTransport(smtpConfig);
+const FROM_NAME = process.env.EMAIL_FROM_NAME || "Axontix Software House";
+const FROM_ADDR = process.env.EMAIL_FROM_ADDRESS || smtpConfig.auth.user;
+const CONTACT_INBOX =
+  process.env.CONTACT_INBOX_EMAIL || "info@axontix.com";
 
-// Option 2: Port 465 with SSL (Agar upar wala kaam na kare)
-// const transporter = nodemailer.createTransporter({
-//   host: "smtp.hostinger.com",
-//   port: 465,
-//   secure: true,
-//   auth: {
-//     user: "legal@dmcamaster.com",
-//     pass: "Muhammad@dmcamaster123",
-//   },
-//   tls: {
-//     rejectUnauthorized: false
-//   }
-// });
+const createTransporter = () => nodemailer.createTransport(smtpConfig);
 
-transporter.verify((error, success) => {
-  if (error) {
-    console.log("SMTP Error:", error);
-  } else {
-    console.log("SMTP Ready");
-  }
+// Verify on boot (non-fatal)
+createTransporter().verify((err) => {
+  if (err) console.warn("[SMTP] verify failed:", err.message);
+  else console.log("[SMTP] ready");
 });
 
-// Create fresh transporter for each request (more reliable)
-const createTransporter = () => {
-  return nodemailer.createTransport(smtpConfig);
-};
-
-// Helper function to send email with retry
-const sendEmailWithRetry = async (mailOptions, maxRetries = 2) => {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+const sendWithRetry = async (opts, max = 2) => {
+  let lastErr;
+  for (let i = 1; i <= max; i++) {
     try {
-      const transporter = createTransporter();
-      const info = await transporter.sendMail(mailOptions);
-      console.log(`Email sent successfully on attempt ${attempt}:`, info.messageId);
+      const t = createTransporter();
+      const info = await t.sendMail(opts);
       return info;
-    } catch (error) {
-      console.log(`Attempt ${attempt} failed:`, error.message);
-      if (attempt === maxRetries) {
-        throw error; // Rethrow if all attempts failed
-      }
-      // Wait 2 seconds before retry
-      await new Promise(resolve => setTimeout(resolve, 2000));
+    } catch (e) {
+      lastErr = e;
+      await new Promise((r) => setTimeout(r, 1500));
     }
   }
+  throw lastErr;
 };
 
-// Email sending route
-app.post('/api/send-email', async (req, res) => {
-  try {
-    const { firstName, lastName, email, phone, message } = req.body;
+// ──────────────────────────────────────────────────────────
+// Beautiful email template
+// ──────────────────────────────────────────────────────────
+const renderHtml = ({ fullName, email, phone, subject, message }) => `
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Inter',Arial,sans-serif;color:#0f172a;">
+  <div style="max-width:620px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 12px 32px -12px rgba(15,23,42,.18);">
+    <div style="background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 50%,#0ea5e9 100%);padding:36px 28px;color:#fff;text-align:center;">
+      <div style="display:inline-block;background:rgba(255,255,255,.18);padding:8px 14px;border-radius:999px;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:600;">Axontix · New Lead</div>
+      <h1 style="margin:14px 0 0;font-size:24px;font-weight:700;">New Contact Form Submission</h1>
+      <p style="margin:8px 0 0;color:rgba(255,255,255,.85);font-size:13px;">Submitted ${new Date().toLocaleString("en-CA")}</p>
+    </div>
+    <div style="padding:30px 28px;">
+      <h2 style="margin:0 0 16px;font-size:15px;letter-spacing:1px;text-transform:uppercase;color:#1d4ed8;">Contact Info</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:14px;">
+        <tr><td style="padding:10px 0;color:#64748b;width:120px;">Name</td><td style="padding:10px 0;font-weight:600;">${fullName || "-"}</td></tr>
+        <tr><td style="padding:10px 0;color:#64748b;">Email</td><td style="padding:10px 0;"><a href="mailto:${email}" style="color:#2563eb;text-decoration:none;font-weight:600;">${email || "-"}</a></td></tr>
+        <tr><td style="padding:10px 0;color:#64748b;">Phone</td><td style="padding:10px 0;">${phone || '<span style="color:#94a3b8;">Not provided</span>'}</td></tr>
+        <tr><td style="padding:10px 0;color:#64748b;">Subject</td><td style="padding:10px 0;">${subject || '<span style="color:#94a3b8;">General inquiry</span>'}</td></tr>
+      </table>
 
-    // Validate required fields
-    if (!firstName || !email || !message) {
+      <h2 style="margin:24px 0 12px;font-size:15px;letter-spacing:1px;text-transform:uppercase;color:#1d4ed8;">Message</h2>
+      <div style="background:#f8fafc;border-left:4px solid #2563eb;padding:18px 20px;border-radius:8px;font-size:14px;line-height:1.65;white-space:pre-wrap;">${(message || "").replace(/[<>&]/g, (c) => ({ "<":"&lt;", ">":"&gt;", "&":"&amp;" }[c]))}</div>
+
+      <div style="text-align:center;margin:28px 0 4px;">
+        <a href="mailto:${email}" style="display:inline-block;background:linear-gradient(135deg,#1d4ed8,#0ea5e9);color:#fff;text-decoration:none;padding:13px 28px;border-radius:999px;font-weight:600;font-size:14px;">Reply to ${fullName || "lead"}</a>
+      </div>
+    </div>
+    <div style="background:#05070d;color:#94a3b8;padding:22px;text-align:center;font-size:12px;">
+      © ${new Date().getFullYear()} Axontix Software House · Built in Canada
+    </div>
+  </div>
+</body></html>`;
+
+// ──────────────────────────────────────────────────────────
+// Routes
+// ──────────────────────────────────────────────────────────
+app.get("/api/health", (_req, res) =>
+  res.json({ status: "OK", service: "axontix-mail" })
+);
+
+// New canonical endpoint
+app.post("/api/contact", async (req, res) => {
+  try {
+    const { fullName, email, phone, subject, message } = req.body || {};
+    if (!fullName || !email || !message) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide all required fields: firstName, email, and message',
+        message: "fullName, email and message are required.",
       });
     }
 
-    // Email to admin
-    const mailOptions = {
-      from: "legal@dmcamaster.com", // Sender email
-      to: "legal@dmcamaster.com",   // Aapki email jahan message receive hoga
-      subject: `New Contact Form Submission from ${firstName} ${lastName || ''}`,
-      html: `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>New Contact Form Submission</title>
-        </head>
-        <body style="margin: 0; padding: 0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; background-color: #f8fafc; color: #2D3748;">
-          <div style="max-width: 600px; margin: 0 auto; background: linear-gradient(to bottom right, #ffffff, #f8fafc);">
-            
-            <!-- Header -->
-            <div style="background: linear-gradient(135deg, #0B1F3B 0%, #2D3748 100%); padding: 40px 30px; text-align: center; border-radius: 0;">
-              <div style="display: inline-block; background-color: #D4AF37; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 15px;">
-                <span style="color: #0B1F3B; font-size: 30px; font-weight: bold;">✉</span>
-              </div>
-              <h1 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 0.5px;">
-                New Contact Request
-              </h1>
-              <p style="color: #D4AF37; margin: 10px 0 0 0; font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">
-                DMCA Master
-              </p>
-            </div>
-            
-            <!-- Content -->
-            <div style="padding: 40px 30px;">
-              
-              <!-- Contact Information Card -->
-              <div style="background-color: #ffffff; border: 2px solid #D4AF37; border-radius: 12px; padding: 25px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(212, 175, 55, 0.1);">
-                <h2 style="color: #0B1F3B; margin: 0 0 20px 0; font-size: 18px; font-weight: 700; border-bottom: 2px solid #D4AF37; padding-bottom: 10px;">
-                  Contact Information
-                </h2>
-                
-                <table style="width: 100%; border-collapse: collapse;">
-                  <tr>
-                    <td style="padding: 12px 0; vertical-align: top;">
-                      <strong style="color: #0B1F3B; font-size: 14px; display: inline-block; min-width: 100px;">
-                        👤 Name:
-                      </strong>
-                    </td>
-                    <td style="padding: 12px 0; color: #2D3748; font-size: 14px;">
-                      ${firstName} ${lastName || ''}
-                    </td>
-                  </tr>
-                  <tr style="border-top: 1px solid #f8fafc;">
-                    <td style="padding: 12px 0; vertical-align: top;">
-                      <strong style="color: #0B1F3B; font-size: 14px; display: inline-block; min-width: 100px;">
-                        📧 Email:
-                      </strong>
-                    </td>
-                    <td style="padding: 12px 0; color: #2D3748; font-size: 14px;">
-                      <a href="mailto:${email}" style="color: #D4AF37; text-decoration: none; font-weight: 500;">
-                        ${email}
-                      </a>
-                    </td>
-                  </tr>
-                  <tr style="border-top: 1px solid #f8fafc;">
-                    <td style="padding: 12px 0; vertical-align: top;">
-                      <strong style="color: #0B1F3B; font-size: 14px; display: inline-block; min-width: 100px;">
-                        📱 Phone:
-                      </strong>
-                    </td>
-                    <td style="padding: 12px 0; color: #2D3748; font-size: 14px;">
-                      ${phone || '<span style="color: #9ca3af; font-style: italic;">Not provided</span>'}
-                    </td>
-                  </tr>
-                </table>
-              </div>
-              
-              <!-- Message Card -->
-              <div style="background: linear-gradient(to right, #f8fafc, #ffffff); border-left: 5px solid #D4AF37; border-radius: 8px; padding: 25px; margin-bottom: 30px; box-shadow: 0 2px 8px rgba(11, 31, 59, 0.08);">
-                <h3 style="color: #0B1F3B; margin: 0 0 15px 0; font-size: 16px; font-weight: 700; display: flex; align-items: center;">
-                  <span style="display: inline-block; width: 30px; height: 30px; background-color: #D4AF37; border-radius: 50%; margin-right: 10px; text-align: center; line-height: 30px;">
-                    💬
-                  </span>
-                  Message
-                </h3>
-                <div style="color: #2D3748; font-size: 15px; line-height: 1.6; background-color: #ffffff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb;">
-                  ${message.replace(/\n/g, '<br>')}
-                </div>
-              </div>
-              
-              <!-- Action Button -->
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="mailto:${email}" style="display: inline-block; background: linear-gradient(135deg, #D4AF37 0%, #CD7F32 100%); color: #0B1F3B; padding: 14px 35px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3); transition: all 0.3s ease;">
-                  Reply to ${firstName}
-                </a>
-              </div>
-              
-            </div>
-            
-            <!-- Footer -->
-            <div style="background-color: #0B1F3B; padding: 30px; text-align: center; border-top: 3px solid #D4AF37;">
-              <p style="color: #D4AF37; margin: 0 0 8px 0; font-size: 13px; font-weight: 600;">
-                DMCA Master - Professional Legal Services
-              </p>
-              <p style="color: #9ca3af; margin: 0; font-size: 12px; line-height: 1.5;">
-                Received: ${new Date().toLocaleString('en-US', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </p>
-              <p style="color: #6b7280; margin: 15px 0 0 0; font-size: 11px;">
-                This email was sent from the DMCA Master contact form.
-              </p>
-            </div>
-            
-          </div>
-        </body>
-        </html>
-      `,
-    };
-
-    // Send email with retry mechanism
-    await sendEmailWithRetry(mailOptions);
-
-    res.status(200).json({
-      success: true,
-      message: 'Email sent successfully!',
+    await sendWithRetry({
+      from: `"${FROM_NAME}" <${FROM_ADDR}>`,
+      to: CONTACT_INBOX,
+      replyTo: email,
+      subject: `🚀 New lead: ${subject || "General"} — ${fullName}`,
+      html: renderHtml({ fullName, email, phone, subject, message }),
     });
-  } catch (error) {
-    console.error('Error sending email:', error);
-    res.status(500).json({
+
+    return res.json({ success: true, message: "Email sent successfully." });
+  } catch (err) {
+    console.error("[/api/contact]", err.message);
+    return res.status(500).json({
       success: false,
-      message: 'Failed to send email. Please try again later.',
-      error: error.message,
+      message: "Failed to send email. Please try again later.",
     });
   }
 });
 
-// Health check route
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'OK', message: 'Server is running' });
+// Legacy alias (kept for backwards compatibility)
+app.post("/api/send-email", (req, res, next) => {
+  // map legacy field names to new ones
+  const b = req.body || {};
+  req.body = {
+    fullName: b.fullName || `${b.firstName || ""} ${b.lastName || ""}`.trim(),
+    email: b.email,
+    phone: b.phone,
+    subject: b.subject,
+    message: b.message,
+  };
+  return app._router.handle(
+    Object.assign(req, { url: "/api/contact", method: "POST" }),
+    res,
+    next
+  );
 });
 
-// Start server
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log(`Email API endpoint: http://localhost:${PORT}/api/send-email`);
+  console.log(`Axontix mail API on http://localhost:${PORT}`);
+  console.log(`POST  /api/contact`);
 });

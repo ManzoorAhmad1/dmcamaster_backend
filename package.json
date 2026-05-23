@@ -1,7 +1,7 @@
 {
-  "name": "dmcamaster-backend",
+  "name": "axontix-backend",
   "version": "1.0.0",
-  "description": "Backend server for DMCA Master email functionality",
+  "description": "Backend mail API for Axontix Software House",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
