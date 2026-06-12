@@ -66,7 +66,6 @@ const validateContactForm = ({ firstName, email, message }) => {
   if (!isNonEmpty(firstName))      return { valid: false, message: 'First name is required' };
   if (!isEmail(email))             return { valid: false, message: 'A valid email address is required' };
   if (!isNonEmpty(message))        return { valid: false, message: 'Message is required' };
-  if (message.trim().length < 10)  return { valid: false, message: 'Message must be at least 10 characters' };
   return { valid: true };
 };
 

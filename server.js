@@ -7,6 +7,14 @@ const authRoutes    = require('./routes/authRoutes');
 const caseRoutes    = require('./routes/caseRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 
+// ── Prevent unhandled rejections from crashing the process ───────────────────
+process.on('unhandledRejection', (reason) => {
+  console.error('  ⚠️  Unhandled rejection (server kept alive):', reason?.message || reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('  ⚠️  Uncaught exception (server kept alive):', err.message);
+});
+
 const app  = express();
 const PORT = process.env.PORT || 5000;
 

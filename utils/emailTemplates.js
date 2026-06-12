@@ -292,17 +292,17 @@ const caseNotificationTemplate = ({ clientName, clientEmail, caseRef, title, con
         ${[['Name', clientName],['Email', clientEmail]].map(([k,v]) => `
         <tr><td style="padding:7px 0;border-bottom:1px solid #f4f5f9;width:120px;font-size:12px;font-weight:700;color:#1a2138;">${k}</td>
             <td style="padding:7px 0;border-bottom:1px solid #f4f5f9;font-size:13px;color:#646e85;">${v || '—'}</td></tr>`).join('')}
-        ${notes ? notes.split('\n')[0].split(' | ').map(part => {
+        ${(notes || '').split('\n')[0].split(' | ').map(part => {
           const [k,...rest] = part.split(': '); return k && rest.length ? `
         <tr><td style="padding:7px 0;border-bottom:1px solid #f4f5f9;width:120px;font-size:12px;font-weight:700;color:#1a2138;">${k}</td>
-            <td style="padding:7px 0;border-bottom:1px solid #f4f5f9;font-size:13px;color:#646e85;">${rest.join(': ')}</td></tr>` : ''; }).join('') : ''}
+            <td style="padding:7px 0;border-bottom:1px solid #f4f5f9;font-size:13px;color:#646e85;">${rest.join(': ')}</td></tr>` : ''; }).join('')}
       </table>
     </td></tr>
   </table>
 
   ${contentDesc ? `<div style="background:#f4f5f9;border-left:4px solid #0B1F3B;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:16px;"><p style="font-size:12px;font-weight:700;color:#0B1F3B;margin:0 0 6px;">Content Description</p><p style="font-size:13px;color:#646e85;margin:0;white-space:pre-wrap;">${contentDesc}</p></div>` : ''}
   ${infrUrls ? `<div style="background:#f4f5f9;border-left:4px solid #D4AF37;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:16px;"><p style="font-size:12px;font-weight:700;color:#0B1F3B;margin:0 0 6px;">Infringing URLs</p><p style="font-family:monospace;font-size:12px;color:#646e85;margin:0;white-space:pre-wrap;">${infrUrls}</p></div>` : ''}
-  ${notes && notes.split('\n')[1] ? `<div style="background:#f4f5f9;border-left:4px solid #aab4c8;padding:12px 16px;border-radius:0 8px 8px 0;"><p style="font-size:12px;font-weight:700;color:#0B1F3B;margin:0 0 6px;">Additional Notes</p><p style="font-size:13px;color:#646e85;margin:0;white-space:pre-wrap;">${notes.split('\n').slice(1).join('\n')}</p></div>` : ''}
+  ${notes && (notes.split('\n')[1] || '') ? `<div style="background:#f4f5f9;border-left:4px solid #aab4c8;padding:12px 16px;border-radius:0 8px 8px 0;"><p style="font-size:12px;font-weight:700;color:#0B1F3B;margin:0 0 6px;">Additional Notes</p><p style="font-size:13px;color:#646e85;margin:0;white-space:pre-wrap;">${(notes || '').split('\n').slice(1).join('\n')}</p></div>` : ''}
 `);
 
 module.exports = { verifyEmailTemplate, resetPasswordTemplate, contactEmailTemplate, otpEmailTemplate, resetOtpEmailTemplate, caseNotificationTemplate };
