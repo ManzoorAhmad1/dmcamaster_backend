@@ -57,6 +57,96 @@ const deleteContact = async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: 'Server error.' }); }
 };
 
+const getBookings = async (req, res) => {
+  try {
+    const { search = '', status = '', date = '' } = req.query;
+    const where = [];
+    const params = [];
+    if (search) {
+      where.push('(booking_ref LIKE ? OR name LIKE ? OR email LIKE ? OR phone LIKE ? OR website LIKE ? OR issue LIKE ? OR message LIKE ?)');
+      params.push(...Array(7).fill(`%${search}%`));
+    }
+    if (status) { where.push('status = ?'); params.push(status); }
+    if (date) { where.push('booking_date = ?'); params.push(date); }
+    const [bookings] = await dbQuery(
+      `SELECT * FROM bookings ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY booking_date DESC, created_at DESC`,
+      params
+    );
+    res.json({ success: true, bookings });
+  } catch (err) {
+    console.error('Admin bookings error:', err.message);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
+const getBooking = async (req, res) => {
+  try {
+    const [rows] = await dbQuery('SELECT * FROM bookings WHERE id=?', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ success: false, message: 'Booking not found.' });
+    res.json({ success: true, booking: rows[0] });
+  } catch (err) { res.status(500).json({ success: false, message: 'Server error.' }); }
+};
+
+const updateBooking = async (req, res) => {
+  try {
+    const allowed = ['name','email','phone','website','issue','message','booking_date','booking_time','timezone','status','admin_notes'];
+    const validStatuses = ['Pending','Confirmed','Completed','Cancelled'];
+    const [currentRows] = await dbQuery('SELECT * FROM bookings WHERE id=?', [req.params.id]);
+    if (!currentRows.length) return res.status(404).json({ success: false, message: 'Booking not found.' });
+    const current = currentRows[0];
+
+    const fields = [];
+    const values = [];
+    for (const key of allowed) {
+      if (req.body[key] === undefined) continue;
+      const value = typeof req.body[key] === 'string' ? req.body[key].trim() : req.body[key];
+      if (key === 'status' && !validStatuses.includes(value)) {
+        return res.status(400).json({ success: false, message: 'Invalid booking status.' });
+      }
+      if (['name','email','issue','booking_date','booking_time'].includes(key) && !value) {
+        return res.status(400).json({ success: false, message: `${key.replace('_', ' ')} is required.` });
+      }
+      fields.push(`${key}=?`);
+      values.push(value);
+    }
+    if (!fields.length) return res.status(400).json({ success: false, message: 'Nothing to update.' });
+
+    const nextDate = String(req.body.booking_date ?? current.booking_date).slice(0, 10);
+    const nextTime = String(req.body.booking_time ?? current.booking_time);
+    const nextStatus = String(req.body.status ?? current.status);
+    if (nextStatus !== 'Cancelled') {
+      const [conflicts] = await dbQuery(
+        `SELECT id,booking_ref FROM bookings
+         WHERE booking_date=? AND booking_time=? AND status<>'Cancelled' AND id<>?
+         LIMIT 1`,
+        [nextDate, nextTime, req.params.id]
+      );
+      if (conflicts.length) {
+        return res.status(409).json({
+          success: false,
+          message: `This slot is already used by ${conflicts[0].booking_ref}.`,
+        });
+      }
+    }
+
+    values.push(req.params.id);
+    const [result] = await dbQuery(`UPDATE bookings SET ${fields.join(',')} WHERE id=?`, values);
+    if (!result.affectedRows) return res.status(404).json({ success: false, message: 'Booking not found.' });
+    res.json({ success: true, message: 'Booking updated.' });
+  } catch (err) {
+    console.error('Update booking error:', err.message);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
+const deleteBooking = async (req, res) => {
+  try {
+    const [result] = await dbQuery('DELETE FROM bookings WHERE id=?', [req.params.id]);
+    if (!result.affectedRows) return res.status(404).json({ success: false, message: 'Booking not found.' });
+    res.json({ success: true, message: 'Booking deleted.' });
+  } catch (err) { res.status(500).json({ success: false, message: 'Server error.' }); }
+};
+
 const getUsers = async (_req, res) => {
   try {
     const [users] = await dbQuery(`
@@ -124,8 +214,9 @@ const getStats = async (_req, res) => {
     const [[users]] = await dbQuery(`SELECT COUNT(*) total FROM users WHERE role='user'`);
     const [[contacts]] = await dbQuery(`SELECT COUNT(*) total, COALESCE(SUM(status='New'),0) new_count FROM contacts`);
     const [[blogs]] = await dbQuery(`SELECT COUNT(*) total, COALESCE(SUM(status='published'),0) published FROM blogs`);
-    res.json({ success: true, stats: { ...cases, users: users.total, contacts: contacts.total, new_contacts: contacts.new_count, blogs: blogs.total, published_blogs: blogs.published } });
+    const [[bookings]] = await dbQuery(`SELECT COUNT(*) total, COALESCE(SUM(status='Pending'),0) pending FROM bookings`);
+    res.json({ success: true, stats: { ...cases, users: users.total, contacts: contacts.total, new_contacts: contacts.new_count, blogs: blogs.total, published_blogs: blogs.published, bookings: bookings.total, pending_bookings: bookings.pending } });
   } catch (err) { res.status(500).json({ success: false, message: 'Server error.' }); }
 };
 
-module.exports = { getContacts, getContact, updateContact, deleteContact, getUsers, getUser, updateUser, deleteUser, getStats };
+module.exports = { getContacts, getContact, updateContact, deleteContact, getBookings, getBooking, updateBooking, deleteBooking, getUsers, getUser, updateUser, deleteUser, getStats };

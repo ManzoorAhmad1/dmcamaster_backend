@@ -50,7 +50,7 @@ const wrapper = (title, body) => `
             <td style="background:#0B1F3B;border-radius:0 0 16px 16px;padding:24px 40px;text-align:center;">
               <p style="color:#D4AF37;margin:0 0 6px;font-size:13px;font-weight:700;">DMCA Master</p>
               <p style="color:#646e85;margin:0 0 4px;font-size:12px;">Professional Digital Rights Protection</p>
-              <p style="color:#646e85;margin:0;font-size:11px;">legal@dmcamaster.com · +92 306 676 8863</p>
+              <p style="color:#646e85;margin:0;font-size:11px;">legal@dmcamaster.com · +92 335 312 6688</p>
             </td>
           </tr>
 

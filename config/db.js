@@ -137,6 +137,27 @@ const TABLES = [
     setting_value LONGTEXT,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS bookings (
+    id VARCHAR(36) PRIMARY KEY,
+    booking_ref VARCHAR(30) NOT NULL UNIQUE,
+    name VARCHAR(160) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    phone VARCHAR(80),
+    website VARCHAR(500),
+    issue VARCHAR(255) NOT NULL,
+    message TEXT,
+    booking_date DATE NOT NULL,
+    booking_time VARCHAR(30) NOT NULL,
+    timezone VARCHAR(80) DEFAULT 'Asia/Karachi',
+    status ENUM('Pending','Confirmed','Completed','Cancelled') DEFAULT 'Pending',
+    admin_notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_bookings_date (booking_date),
+    INDEX idx_bookings_status (status),
+    INDEX idx_bookings_email (email),
+    INDEX idx_bookings_created (created_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 ];
 
 /*
@@ -238,6 +259,23 @@ const REQUIRED_COLUMNS = {
     setting_value: 'LONGTEXT NULL',
     updated_at: 'DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP',
   },
+  bookings: {
+    id: 'VARCHAR(36) NULL',
+    booking_ref: 'VARCHAR(30) NULL',
+    name: 'VARCHAR(160) NULL',
+    email: 'VARCHAR(255) NULL',
+    phone: 'VARCHAR(80) NULL',
+    website: 'VARCHAR(500) NULL',
+    issue: 'VARCHAR(255) NULL',
+    message: 'TEXT NULL',
+    booking_date: 'DATE NULL',
+    booking_time: 'VARCHAR(30) NULL',
+    timezone: "VARCHAR(80) DEFAULT 'Asia/Karachi'",
+    status: "ENUM('Pending','Confirmed','Completed','Cancelled') DEFAULT 'Pending'",
+    admin_notes: 'TEXT NULL',
+    created_at: 'DATETIME DEFAULT CURRENT_TIMESTAMP',
+    updated_at: 'DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP',
+  },
 };
 
 const INDEXES = {
@@ -268,6 +306,13 @@ const INDEXES = {
     { name: 'idx_blogs_status', columns: '`status`' },
     { name: 'idx_blogs_published', columns: '`published_at`' },
     { name: 'idx_blogs_category', columns: '`category_id`' },
+  ],
+  bookings: [
+    { name: 'uq_bookings_ref', columns: '`booking_ref`', unique: true },
+    { name: 'idx_bookings_date', columns: '`booking_date`' },
+    { name: 'idx_bookings_status', columns: '`status`' },
+    { name: 'idx_bookings_email', columns: '`email`' },
+    { name: 'idx_bookings_created', columns: '`created_at`' },
   ],
 };
 
@@ -386,7 +431,7 @@ const initDB = async () => {
     await seedDefaults(conn);
 
     console.log(`[DB] Schema sync complete. Added columns: ${addedColumns}; added indexes: ${addedIndexes}.`);
-    console.log('[DB] CMS, contacts, users and protection tables are ready.');
+    console.log('[DB] CMS, contacts, bookings, users and protection tables are ready.');
   } catch (error) {
     console.error('[DB ERROR] Schema sync failed:', error.message);
     throw error;

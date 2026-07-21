@@ -2,12 +2,13 @@ require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
-const { initDB } = require('./config/db');
+const { seedDatabase } = require('./scripts/seedDatabase');
 const authRoutes = require('./routes/authRoutes');
 const caseRoutes = require('./routes/caseRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const blogRoutes = require('./routes/blogRoutes');
+const bookingRoutes = require('./routes/bookingRoutes');
 
 const printError = (label, error) => {
   console.error(label);
@@ -87,6 +88,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api', caseRoutes);
 app.use('/api', contactRoutes);
 app.use('/api', blogRoutes);
+app.use('/api', bookingRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'OK', message: 'DMCA Master API is running' }));
 app.use((err, _req, res, next) => {
@@ -105,7 +107,7 @@ const startServer = async () => {
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       console.log(`[STARTUP] Database initialization attempt ${attempt}/${maxAttempts}...`);
-      await initDB();
+      await seedDatabase();
 
       const server = app.listen(PORT, () => {
         console.log(`DMCA Master API running on port ${PORT}`);

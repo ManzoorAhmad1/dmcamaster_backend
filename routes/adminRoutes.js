@@ -12,6 +12,11 @@ router.get('/contacts/:id', admin.getContact);
 router.put('/contacts/:id', admin.updateContact);
 router.delete('/contacts/:id', admin.deleteContact);
 
+router.get('/bookings', admin.getBookings);
+router.get('/bookings/:id', admin.getBooking);
+router.put('/bookings/:id', admin.updateBooking);
+router.delete('/bookings/:id', admin.deleteBooking);
+
 router.get('/users', admin.getUsers);
 router.get('/users/:id', admin.getUser);
 router.put('/users/:id', admin.updateUser);
