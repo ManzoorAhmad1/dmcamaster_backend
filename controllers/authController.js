@@ -13,7 +13,7 @@ const {
   validateForgotPassword, validateResetPassword, validateChangePassword,
 } = require('../utils/validate');
 
-const JWT_SECRET  = process.env.JWT_SECRET  || 'dmcamaster_super_secret_jwt_2026_hostinger';
+const JWT_SECRET  = process.env.JWT_SECRET  || 'development-only-change-me';
 const JWT_EXPIRES = process.env.JWT_EXPIRES || '7d';
 
 const dbQuery = async (sql, params = []) => {

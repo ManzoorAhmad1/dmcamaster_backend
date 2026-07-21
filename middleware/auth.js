@@ -6,7 +6,7 @@ require('dotenv').config();
 const jwt    = require('jsonwebtoken');
 const { getDB } = require('../config/db');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dmcamaster_super_secret_jwt_2026_hostinger';
+const JWT_SECRET = process.env.JWT_SECRET || 'development-only-change-me';
 
 // ─── Authenticate any logged-in user ─────────────────────────────────────────
 const authenticate = async (req, res, next) => {

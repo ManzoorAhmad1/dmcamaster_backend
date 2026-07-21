@@ -149,3 +149,16 @@ Example:
 ---
 
 **Ready! Bas apni email aur password `server.js` mein update karein aur server start karein! 🚀**
+
+## Automatic database schema sync
+
+The backend now checks the database every time `server.js` starts. Missing CMS tables and missing columns are created automatically before the API starts listening.
+
+You can also run the sync manually from the Hostinger terminal:
+
+```bash
+npm install
+npm run db:sync
+```
+
+Then restart the Node.js application. The command is safe to run more than once; it does not delete existing rows or reset an existing admin password.

@@ -1,131 +1,66 @@
-# DMCA Master Backend Server
+# DMCA Master Backend
 
-Backend server for handling email functionality using Express.js and Nodemailer.
+Express + MySQL backend for the DMCA Master website, client portal, admin panel and blog CMS.
 
-## Setup Instructions
+## Included features
 
-### 1. Install Dependencies
+- JWT authentication with email verification and password reset OTPs
+- Admin-only routes protected by role middleware
+- Login, OTP and contact-form rate limiting
+- Protection case management for clients and admins
+- Contact form storage with admin search, view, edit and delete actions
+- Registered-user search, view, edit and delete actions
+- Dynamic blog CMS with drafts, publishing, categories, tags and per-post SEO
+- Global layout metadata and Google verification settings
+- Hostinger-compatible image uploads stored in `uploads/`
+- Automatic database table creation and safe upgrades for older installations
 
-Open a NEW terminal (Command Prompt or PowerShell as Administrator) and run:
+## Temporary administrator account
+
+The first backend start creates this administrator when the account does not already exist:
+
+- Email: `admin@dmcamaster.com`
+- Password: `DmcaMaster@2026`
+
+Change the password immediately from **Admin Panel → Admin Settings**. The initial values can be changed with `ADMIN_LOGIN_EMAIL`, `ADMIN_LOGIN_PASSWORD` and `ADMIN_LOGIN_NAME` before the first start.
+
+## Local setup
+
+1. Copy `.env.example` to `.env`.
+2. Enter the MySQL, SMTP, domain and JWT values.
+3. Create the database named in `DB_NAME`; the application creates all tables.
+4. Install and run:
 
 ```bash
-cd backend
-npm install
-```
-
-If you get execution policy error in PowerShell, either:
-- Use Command Prompt instead
-- Or run PowerShell as Administrator and execute:
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
-```
-
-This will install:
-- express (Web framework)
-- nodemailer (Email sending)
-- cors (Cross-origin resource sharing)
-- dotenv (Environment variables)
-- nodemon (Development auto-reload)
-
-### 2. Configure Email Settings
-
-Edit the `.env` file and add your email credentials:
-
-```env
-EMAIL_USER=your-gmail@gmail.com
-EMAIL_PASS=your-app-specific-password
-PORT=5000
-```
-
-#### Getting Gmail App Password:
-1. Go to your Google Account settings
-2. Enable 2-Step Verification
-3. Go to Security → App passwords
-4. Generate a new app password for "Mail"
-5. Copy that password and paste it in EMAIL_PASS
-
-### 3. Start the Server
-
-For development (with auto-reload):
-```bash
+npm ci
 npm run dev
 ```
 
-For production:
-```bash
-npm start
-```
+Health check: `GET /api/health`
 
-Server will run on: `http://localhost:5000`
+## Hostinger deployment
 
-## API Endpoints
+1. Upload this backend folder to the Node.js application directory.
+2. Configure Node.js 18 or newer and startup file `server.js`.
+3. Add all values from `.env.example` in Hostinger's environment configuration.
+4. Set `PUBLIC_API_URL` to the public backend URL, for example `https://api.dmcamaster.com`.
+5. Set `CORS_ORIGINS` to the frontend origins separated by commas.
+6. Run `npm ci` and restart the Node.js application.
+7. Ensure the application process can write to the `uploads` directory. The directory is created automatically if missing.
 
-### POST `/api/send-email`
-Sends email to admin@dmcamaster.com
+Uploaded images are served at `/uploads/<filename>` and are limited to 8 MB. JPG, PNG, WEBP and GIF are accepted.
 
-**Request Body:**
-```json
-{
-  "firstName": "John",
-  "lastName": "Doe",
-  "email": "john@example.com",
-  "phone": "1234567890",
-  "message": "Your message here"
-}
-```
+## Main API groups
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Email sent successfully!"
-}
-```
+- Public: `/api/blogs`, `/api/blog-categories`, `/api/blog-tags`, `/api/site-settings`, `/api/send-email`
+- Authentication: `/api/auth/*`
+- Client protection: `/api/cases/*`
+- Admin: `/api/admin/contacts`, `/api/admin/users`, `/api/admin/blogs`, `/api/admin/categories`, `/api/admin/tags`, `/api/admin/settings`, `/api/admin/uploads`
 
-### GET `/api/health`
-Health check endpoint
+## Production checklist
 
-**Response:**
-```json
-{
-  "status": "OK",
-  "message": "Server is running"
-}
-```
-
-## Email Services Supported
-
-You can use any of these email services in `.env`:
-- Gmail: `service: 'gmail'`
-- Outlook: `service: 'outlook'`
-- Yahoo: `service: 'yahoo'`
-- Or use custom SMTP settings
-
-## Testing
-
-Test the API using:
-- Postman
-- Thunder Client (VS Code extension)
-- cURL:
-```bash
-curl -X POST http://localhost:5000/api/send-email \
-  -H "Content-Type: application/json" \
-  -d '{
-    "firstName": "Test",
-    "email": "test@example.com",
-    "message": "Test message"
-  }'
-```
-
-## Deployment
-
-For production deployment:
-1. Set environment variables on your hosting platform
-2. Update CORS settings in server.js if needed
-3. Change PORT if required by hosting provider
-
-## Notes
-
-- Admin email is set to: `legal@dmcamaster.com`
-- All contact form submissions will be sent to this email
-- Make sure to keep your `.env` file secure and never commit it to Git
+- Replace `JWT_SECRET` with a long random value.
+- Replace the temporary administrator password.
+- Keep `.env` outside source control and backups shared with third parties.
+- Use HTTPS for both frontend and API.
+- Back up the MySQL database and `uploads` directory together.

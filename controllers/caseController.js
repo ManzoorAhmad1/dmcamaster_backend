@@ -115,16 +115,20 @@ const updateCase = async (req, res) => {
 
     const caseRecord = rows[0];
 
-    // ── Admin update ────────────────────────────────────────────────────────────
+    // ── Admin update: admins may edit the complete protection submission. ───────
     if (req.user.role === 'admin') {
       const check = validateUpdateCaseAdmin(req.body);
       if (!check.valid) return res.status(400).json({ success: false, message: check.message });
 
-      const { status, admin_notes } = req.body;
+      const allowed = ['title','content_type','content_desc','infr_urls','urgency','plan','notes','status','admin_notes'];
       const fields = []; const values = [];
-      if (status !== undefined)      { fields.push('status = ?');      values.push(status); }
-      if (admin_notes !== undefined) { fields.push('admin_notes = ?'); values.push(admin_notes); }
-
+      for (const key of allowed) {
+        if (req.body[key] !== undefined) { fields.push(`${key} = ?`); values.push(req.body[key]); }
+      }
+      if (req.body.platforms !== undefined) {
+        fields.push('platforms = ?');
+        values.push(JSON.stringify(Array.isArray(req.body.platforms) ? req.body.platforms : []));
+      }
       if (!fields.length) return res.status(400).json({ success: false, message: 'Nothing to update.' });
 
       values.push(req.params.id);
@@ -143,18 +147,21 @@ const updateCase = async (req, res) => {
       });
     }
 
-    const { title, content_type, content_desc, infr_urls, urgency, notes } = req.body;
+    const { title, content_type, content_desc, platforms, infr_urls, urgency, plan, notes } = req.body;
     await dbQuery(
       `UPDATE cases SET
          title        = COALESCE(?, title),
          content_type = COALESCE(?, content_type),
          content_desc = COALESCE(?, content_desc),
+         platforms    = COALESCE(?, platforms),
          infr_urls    = COALESCE(?, infr_urls),
          urgency      = COALESCE(?, urgency),
+         plan         = COALESCE(?, plan),
          notes        = COALESCE(?, notes)
        WHERE id = ?`,
       [title || null, content_type || null, content_desc || null,
-       infr_urls || null, urgency || null, notes || null, req.params.id]
+       platforms !== undefined ? JSON.stringify(Array.isArray(platforms) ? platforms : []) : null,
+       infr_urls || null, urgency || null, plan || null, notes || null, req.params.id]
     );
 
     return res.json({ success: true, message: 'Case updated successfully.' });
